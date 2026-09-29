@@ -43,17 +43,15 @@ async function main() {
     faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
     // ── Configuration ──────────────────────────────────────
-    const imageDir = process.argv[2] || path.join(__dirname, 'dataset', 'owner');
+    const datasetDir = path.join(__dirname, 'dataset');
     const modelDir = path.join(__dirname, 'models');
     const outputDir = path.join(__dirname, 'data');
     const outputFile = path.join(outputDir, 'embeddings.json');
-
     const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp']);
 
     // ── Validate paths ─────────────────────────────────────
-    if (!fs.existsSync(imageDir)) {
-        console.error(`❌ Image directory not found: ${imageDir}`);
-        console.error('   Place face images in dataset/owner/ or specify a path.');
+    if (!fs.existsSync(datasetDir)) {
+        console.error(`❌ Dataset directory not found: ${datasetDir}`);
         process.exit(1);
     }
 
@@ -63,26 +61,40 @@ async function main() {
         process.exit(1);
     }
 
-    // ── Find images ────────────────────────────────────────
-    const files = fs.readdirSync(imageDir)
-        .filter(f => IMAGE_EXTENSIONS.has(path.extname(f).toLowerCase()))
-        .sort();
+    // ── Find persons and images ────────────────────────────
+    const persons = fs.readdirSync(datasetDir).filter(f => {
+        return fs.statSync(path.join(datasetDir, f)).isDirectory();
+    });
 
-    if (files.length === 0) {
-        console.error(`❌ No images found in: ${imageDir}`);
-        console.error('   Supported formats: JPG, PNG, WebP, BMP');
+    if (persons.length === 0) {
+        console.error(`❌ No person folders found in: ${datasetDir}`);
+        console.error('   Example: create folder dataset/person1/ and put photos there.');
         process.exit(1);
+    }
+
+    let allFiles = [];
+    for (const person of persons) {
+        const personDir = path.join(datasetDir, person);
+        const files = fs.readdirSync(personDir)
+            .filter(f => IMAGE_EXTENSIONS.has(path.extname(f).toLowerCase()))
+            .map(f => ({ person, fileName: f, filePath: path.join(personDir, f) }));
+        allFiles = allFiles.concat(files);
     }
 
     console.log('╔══════════════════════════════════════════════╗');
     console.log('║   Face Lock — Embedding Generator            ║');
     console.log('╚══════════════════════════════════════════════╝');
     console.log();
-    console.log(`📁 Image folder : ${imageDir}`);
-    console.log(`📸 Images found : ${files.length}`);
-    console.log(`🧠 Models       : ${modelDir}`);
-    console.log(`💾 Output       : ${outputFile}`);
+    console.log(`📁 Dataset folder : ${datasetDir}`);
+    console.log(`👥 Persons found  : ${persons.join(', ')}`);
+    console.log(`📸 Total images   : ${allFiles.length}`);
+    console.log(`💾 Output         : ${outputFile}`);
     console.log();
+
+    if (allFiles.length === 0) {
+        console.error('❌ No images found in any subfolders.');
+        process.exit(1);
+    }
 
     // ── Load models ────────────────────────────────────────
     console.log('⏳ Loading face detection models...');
@@ -106,11 +118,10 @@ async function main() {
     let multiFace = 0;
     let errors = 0;
 
-    for (let i = 0; i < files.length; i++) {
-        const fileName = files[i];
-        const filePath = path.join(imageDir, fileName);
-        const sampleId = path.basename(fileName, path.extname(fileName));
-        const progress = `[${String(i + 1).padStart(3)}/${files.length}]`;
+    for (let i = 0; i < allFiles.length; i++) {
+        const { person, fileName, filePath } = allFiles[i];
+        const progress = `[${String(i + 1).padStart(3)}/${allFiles.length}]`;
+        const logPrefix = `${progress} [${person}] ${fileName}`;
 
         try {
             // Load image using canvas
@@ -123,19 +134,19 @@ async function main() {
                 .withFaceDescriptors();
 
             if (detections.length === 0) {
-                console.log(`${progress} ❌ ${fileName} → NO FACE DETECTED`);
+                console.log(`${logPrefix} → ❌ NO FACE DETECTED`);
                 noFace++;
             } else if (detections.length > 1) {
-                console.log(`${progress} ⚠️  ${fileName} → ${detections.length} FACES (skipped)`);
+                console.log(`${logPrefix} → ⚠️ ${detections.length} FACES (skipped)`);
                 multiFace++;
             } else {
                 // Exactly one face — save embedding
                 const embedding = Array.from(detections[0].descriptor);
-                samples.push({ id: sampleId, embedding });
-                console.log(`${progress} ✅ ${fileName} → SUCCESS`);
+                samples.push({ person, id: fileName, embedding });
+                console.log(`${logPrefix} → ✅ SUCCESS`);
             }
         } catch (err) {
-            console.log(`${progress} ❌ ${fileName} → ERROR: ${err.message}`);
+            console.log(`${logPrefix} → ❌ ERROR: ${err.message}`);
             errors++;
         }
     }
@@ -144,7 +155,7 @@ async function main() {
     console.log('─'.repeat(50));
     console.log();
     console.log('📊 Results:');
-    console.log(`   Total images   : ${files.length}`);
+    console.log(`   Total images   : ${allFiles.length}`);
     console.log(`   ✅ Success      : ${samples.length}`);
     console.log(`   ❌ No face      : ${noFace}`);
     console.log(`   ⚠️  Multi face  : ${multiFace}`);
@@ -162,7 +173,7 @@ async function main() {
     }
 
     const output = {
-        person: 'owner',
+        persons: persons,
         samples: samples,
         created_at: new Date().toISOString(),
         total_samples: samples.length

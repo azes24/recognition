@@ -180,7 +180,7 @@
 
             if (result.match) {
                 displaySimilarity.className = 'stat-value text-success';
-                setStatus('unlocked', '🔓', 'UNLOCKED', 'Face recognized — Access granted');
+                setStatus('unlocked', '🔓', 'UNLOCKED', `Recognized: ${result.person}`);
                 lockScore.textContent = simStr;
                 lockScore.style.color = 'var(--success)';
             } else {
@@ -213,31 +213,48 @@
     function compareEmbeddings(scanned, samples) {
         if (!samples || samples.length === 0) return { match: false, simPercent: 0 };
 
-        // 1. Calculate Euclidean distance to all reference samples
-        const distances = samples.map(sample => euclideanDistance(scanned, sample.embedding));
+        // Group distances by person
+        const personDistances = {};
         
-        // 2. Sort distances ascending (lower distance = more similar)
-        distances.sort((a, b) => a - b);
-
-        // 3. Take Top K closest matches
-        const k = Math.min(CONFIG.topK, distances.length);
-        let sumDistance = 0;
-        for (let i = 0; i < k; i++) {
-            sumDistance += distances[i];
+        for (const sample of samples) {
+            const dist = euclideanDistance(scanned, sample.embedding);
+            const person = sample.person || 'Unknown';
+            if (!personDistances[person]) {
+                personDistances[person] = [];
+            }
+            personDistances[person].push(dist);
         }
         
-        // 4. Calculate Average Distance of the Top K
-        const avgDistance = sumDistance / k;
+        let bestPerson = null;
+        let bestAvgDistance = Infinity;
 
-        // 5. Determine match based on strictly set distance threshold
-        const match = avgDistance <= CONFIG.threshold;
+        // For each person, take their Top K closest matches and average them
+        for (const person in personDistances) {
+            const distances = personDistances[person];
+            distances.sort((a, b) => a - b); // Sort ascending (lower distance is better)
+            
+            const k = Math.min(CONFIG.topK, distances.length);
+            let sumDistance = 0;
+            for (let i = 0; i < k; i++) {
+                sumDistance += distances[i];
+            }
+            
+            const avgDistance = sumDistance / k;
+            if (avgDistance < bestAvgDistance) {
+                bestAvgDistance = avgDistance;
+                bestPerson = person;
+            }
+        }
 
-        // Convert distance to a human-readable 0-100% similarity score.
-        // A perfect match (dist=0) -> 100%. A total mismatch (dist>=1.0) -> 0%.
-        let simPercent = Math.max(0, 1 - avgDistance) * 100;
+        // Determine match based on strict distance threshold
+        const match = bestAvgDistance <= CONFIG.threshold;
+
+        // Convert distance to a human-readable 0-100% similarity score
+        let simPercent = Math.max(0, 1 - bestAvgDistance) * 100;
 
         return {
-            avgDistance,
+            avgDistance: bestAvgDistance,
+            person: bestPerson,
             simPercent,
             match
         };
