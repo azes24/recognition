@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Face Lock — Face recognition-based security system with continuous auto-scan.">
+    <title>Face Lock</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+</head>
+<body>
+    <!-- Main Content -->
+    <main class="container" style="padding-top: 2rem;">
+        <div class="page-header fade-in">
+            <h1>Face Lock</h1>
+            <p>Continuous face recognition — look at the camera</p>
+        </div>
+
+        <!-- Alert -->
+        <div id="alertBox" class="alert hidden"></div>
+
+        <!-- Webcam -->
+        <div class="card">
+            <div class="webcam-wrapper">
+                <div class="webcam-container scanning" id="webcamContainer">
+                    <video id="webcamVideo" autoplay muted playsinline></video>
+                    <canvas id="overlayCanvas"></canvas>
+                    <div class="scan-frame"></div>
+                    <div class="scan-frame-bottom"></div>
+                    <div class="scan-line"></div>
+                    <div class="webcam-overlay" id="webcamOverlay">
+                        <span class="overlay-icon">📷</span>
+                        <span>Initializing camera...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lock Status -->
+        <div class="lock-status idle" id="lockStatus">
+            <div class="lock-icon-wrap">
+                <div class="lock-icon-glow"></div>
+                <span class="lock-icon" id="lockIcon">🔒</span>
+            </div>
+            <div class="lock-label" id="lockLabel">INITIALIZING</div>
+            <div class="lock-message" id="lockMessage">Loading models...</div>
+            <div class="lock-score" id="lockScore"></div>
+        </div>
+
+        <!-- Minimal Stats -->
+        <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="stat-item">
+                <div class="stat-value" id="displaySimilarity">--</div>
+                <div class="stat-label">Similarity</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="displaySamples">--</div>
+                <div class="stat-label">Ref. Samples</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="displayScans">0</div>
+                <div class="stat-label">Scans</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

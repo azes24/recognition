@@ -1,0 +1,15 @@
+{
+    "name": "face-lock",
+    "version": "1.0.0",
+    "description": "Face recognition-based locking system",
+    "private": true,
+    "scripts": {
+        "generate": "node generate_embeddings.js",
+        "serve": "npx serve ."
+    },
+    "dependencies": {
+        "@tensorflow/tfjs": "^4.22.0",
+        "@vladmandic/face-api": "^1.7.14",
+        "canvas": "^3.1.0"
+    }
+}
